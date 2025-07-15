@@ -1,12 +1,8 @@
-"use client"
+// Server Component
+export const dynamic = "force-dynamic"
 
-import dynamic from "next/dynamic"
-
-// Lazy-load the client bundle to keep the server footprint minimal
-const DashboardClient = dynamic(() => import("@/components/dashboard-client"), {
-  ssr: false,
-})
+import DashboardClientWrapper from "./dashboard-client-wrapper"
 
 export default function DashboardPage() {
-  return <DashboardClient />
+  return <DashboardClientWrapper />
 }

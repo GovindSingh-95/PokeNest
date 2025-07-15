@@ -109,8 +109,8 @@ export default function DashboardClient() {
                   <Sword className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">151</div>
-                  <p className="text-xs text-muted-foreground">Gen 1 Pokémon</p>
+                  <div className="text-2xl font-bold">All Gens</div>
+                  <p className="text-xs text-muted-foreground">Complete database</p>
                 </CardContent>
               </Card>
 
@@ -120,7 +120,7 @@ export default function DashboardClient() {
                   <Star className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">8</div>
+                  <div className="text-2xl font-bold">15+</div>
                   <p className="text-xs text-muted-foreground">Interactive tools</p>
                 </CardContent>
               </Card>
