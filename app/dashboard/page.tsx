@@ -1,391 +1,238 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Trophy, Heart, Users, Zap, TrendingUp, Target, Clock, Award, Home } from "lucide-react"
-import Link from "next/link"
-import { PokemonOfTheDay } from "@/components/pokemon-of-the-day"
-import { RandomPokemon } from "@/components/random-pokemon"
-import { FavoritesSystem } from "@/components/favorites-system"
+import { Badge } from "@/components/ui/badge"
+import { Sword, Users, Trophy, Heart, Shuffle, Calendar, TrendingUp, Target, Zap, Star } from "lucide-react"
+import { BattleSimulator } from "@/components/battle-simulator"
+import { TeamBuilder } from "@/components/team-builder"
+import { QuizSystem } from "@/components/quiz-system"
 import { AchievementSystem } from "@/components/achievement-system"
+import { FavoritesSystem } from "@/components/favorites-system"
+import { RandomPokemon } from "@/components/random-pokemon"
+import { PokemonOfTheDay } from "@/components/pokemon-of-the-day"
 import { usePokemonData } from "@/hooks/use-pokemon-data"
-import { PokemonModal } from "@/components/pokemon-modal"
-import type { Pokemon } from "@/types/pokemon"
-import type { UserStats, DailyChallenge } from "@/types/enhanced-features"
+import { PokemonLoadingProgress } from "@/components/pokemon-loading"
 
 export default function DashboardPage() {
-  const { pokemon, loading } = usePokemonData()
-  const [selectedPokemon, setSelectedPokemon] = useState<Pokemon | null>(null)
-  const [userStats, setUserStats] = useState<UserStats>({
-    pokemonSeen: 0,
-    pokemonCaught: 0,
-    battlesWon: 0,
-    battlesLost: 0,
-    teamsCreated: 0,
-    achievementsUnlocked: 0,
-    daysActive: 1,
-    currentStreak: 1,
-    longestStreak: 1,
-  })
-
-  const [dailyChallenges] = useState<DailyChallenge[]>([
-    {
-      id: "daily-1",
-      date: new Date(),
-      type: "explore",
-      title: "Pokédex Explorer",
-      description: "View 10 different Pokémon today",
-      requirements: { pokemonToView: 10 },
-      reward: { type: "xp", value: 100 },
-      completed: false,
-      progress: 3,
-      maxProgress: 10,
-    },
-    {
-      id: "daily-2",
-      date: new Date(),
-      type: "quiz",
-      title: "Knowledge Test",
-      description: "Complete a quiz with 80% accuracy",
-      requirements: { accuracy: 80 },
-      reward: { type: "badge", value: "Quiz Master" },
-      completed: false,
-      progress: 0,
-      maxProgress: 1,
-    },
-    {
-      id: "daily-3",
-      date: new Date(),
-      type: "team-build",
-      title: "Team Strategy",
-      description: "Create a balanced team with all roles",
-      requirements: { roles: ["sweeper", "tank", "support"] },
-      reward: { type: "title", value: "Strategist" },
-      completed: false,
-      progress: 0,
-      maxProgress: 1,
-    },
-  ])
-
-  useEffect(() => {
-    // Update user stats based on localStorage and current data
-    const favorites = JSON.parse(localStorage.getItem("pokemon-favorites") || "[]")
-    const teams = JSON.parse(localStorage.getItem("pokemon-teams") || "[]")
-    const achievements = JSON.parse(localStorage.getItem("pokemon-achievements") || "[]")
-
-    setUserStats({
-      pokemonSeen: pokemon.length,
-      pokemonCaught: favorites.length,
-      battlesWon: Math.floor(Math.random() * 10), // Demo data
-      battlesLost: Math.floor(Math.random() * 5),
-      teamsCreated: teams.length,
-      achievementsUnlocked: achievements.filter((a: any) => a.unlockedAt).length,
-      daysActive: 1,
-      currentStreak: 1,
-      longestStreak: 1,
-    })
-  }, [pokemon])
-
-  // Safe calculation functions to prevent NaN
-  const safePercentage = (value: number, total: number): number => {
-    if (!total || total === 0) return 0
-    return Math.min(Math.round((value / total) * 100), 100)
-  }
-
-  const safeBattleWinRate = (): number => {
-    const totalBattles = userStats.battlesWon + userStats.battlesLost
-    if (totalBattles === 0) return 0
-    return Math.round((userStats.battlesWon / totalBattles) * 100)
-  }
+  const { pokemon, loading, error } = usePokemonData()
+  const [activeTab, setActiveTab] = useState("overview")
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
+        <div className="max-w-7xl mx-auto">
+          <PokemonLoadingProgress />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
+        <div className="max-w-7xl mx-auto text-center py-20">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">⚠️ Dashboard Error</h1>
+          <p className="text-gray-600 mb-4">Unable to load dashboard data.</p>
+          <p className="text-sm text-gray-500">Error: {error}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-red-50">
-      {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-orange-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center shadow-lg">
-                  <div className="w-5 h-5 bg-white rounded-full"></div>
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">PokéNest</h1>
-                </div>
-              </Link>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <Link href="/explore">
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Home className="w-4 h-4" />
-                  Explore
-                </Button>
-              </Link>
-              <Link href="/">
-                <Button variant="outline" size="sm">
-                  Home
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Your Pokémon Dashboard</h1>
-          <p className="text-gray-600">Track your progress, discover new Pokémon, and manage your collection</p>
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">🎮 PokéNest Dashboard</h1>
+          <p className="text-gray-600 text-lg">Your ultimate Pokémon companion experience</p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{userStats.pokemonSeen || 0}</div>
-              <div className="text-sm text-gray-600">Pokémon Seen</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-red-600">{userStats.pokemonCaught || 0}</div>
-              <div className="text-sm text-gray-600">Favorites</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600">{userStats.teamsCreated || 0}</div>
-              <div className="text-sm text-gray-600">Teams Built</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600">{userStats.achievementsUnlocked || 0}</div>
-              <div className="text-sm text-gray-600">Achievements</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Daily Challenges */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              Daily Challenges
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
-              {dailyChallenges.map((challenge) => (
-                <div key={challenge.id} className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">{challenge.title}</h4>
-                    <Badge variant={challenge.completed ? "default" : "secondary"}>
-                      {challenge.completed ? "Complete" : "Active"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-3">{challenge.description}</p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span>Progress</span>
-                      <span>
-                        {challenge.progress}/{challenge.maxProgress}
-                      </span>
-                    </div>
-                    <Progress value={safePercentage(challenge.progress, challenge.maxProgress)} className="h-2" />
-                  </div>
-                  <div className="mt-2 text-xs text-gray-500">
-                    Reward: {challenge.reward.value} {challenge.reward.type}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="overview" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-5 bg-white/70 backdrop-blur-sm">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="daily">Daily</TabsTrigger>
-            <TabsTrigger value="random">Random</TabsTrigger>
-            <TabsTrigger value="favorites">Favorites</TabsTrigger>
-            <TabsTrigger value="achievements">Achievements</TabsTrigger>
+        {/* Navigation Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              <span className="hidden sm:inline">Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="battle" className="flex items-center gap-2">
+              <Sword className="w-4 h-4" />
+              <span className="hidden sm:inline">Battle</span>
+            </TabsTrigger>
+            <TabsTrigger value="team" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Team</span>
+            </TabsTrigger>
+            <TabsTrigger value="quiz" className="flex items-center gap-2">
+              <Target className="w-4 h-4" />
+              <span className="hidden sm:inline">Quiz</span>
+            </TabsTrigger>
+            <TabsTrigger value="achievements" className="flex items-center gap-2">
+              <Trophy className="w-4 h-4" />
+              <span className="hidden sm:inline">Awards</span>
+            </TabsTrigger>
+            <TabsTrigger value="favorites" className="flex items-center gap-2">
+              <Heart className="w-4 h-4" />
+              <span className="hidden sm:inline">Favorites</span>
+            </TabsTrigger>
+            <TabsTrigger value="random" className="flex items-center gap-2">
+              <Shuffle className="w-4 h-4" />
+              <span className="hidden sm:inline">Random</span>
+            </TabsTrigger>
+            <TabsTrigger value="daily" className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              <span className="hidden sm:inline">Daily</span>
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-8">
-            {/* Recent Activity */}
-            <div className="grid lg:grid-cols-2 gap-8">
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Quick Stats */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    Recent Activity
-                  </CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Pokémon</CardTitle>
+                  <Zap className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                        <Trophy className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">Viewed {userStats.pokemonSeen || 0} Pokémon</div>
-                        <div className="text-sm text-gray-600">Exploration progress</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg">
-                      <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
-                        <Heart className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">Added {userStats.pokemonCaught || 0} favorites</div>
-                        <div className="text-sm text-gray-600">Collection building</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                        <Users className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">Created {userStats.teamsCreated || 0} teams</div>
-                        <div className="text-sm text-gray-600">Team building</div>
-                      </div>
-                    </div>
-                  </div>
+                  <div className="text-2xl font-bold">{pokemon?.length || 0}</div>
+                  <p className="text-xs text-muted-foreground">Available for battles</p>
                 </CardContent>
               </Card>
 
-              {/* Quick Actions */}
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Zap className="w-5 h-5" />
-                    Quick Actions
-                  </CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Battle Ready</CardTitle>
+                  <Sword className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Link href="/explore">
-                      <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                        <TrendingUp className="w-6 h-6" />
-                        <span className="text-sm">Explore Pokédex</span>
-                      </Button>
-                    </Link>
+                  <div className="text-2xl font-bold">151</div>
+                  <p className="text-xs text-muted-foreground">Gen 1 Pokémon</p>
+                </CardContent>
+              </Card>
 
-                    <Link href="/explore?tab=battle">
-                      <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                        <Zap className="w-6 h-6" />
-                        <span className="text-sm">Battle Simulator</span>
-                      </Button>
-                    </Link>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Features</CardTitle>
+                  <Star className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">8</div>
+                  <p className="text-xs text-muted-foreground">Interactive tools</p>
+                </CardContent>
+              </Card>
 
-                    <Link href="/explore?tab=teams">
-                      <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                        <Users className="w-6 h-6" />
-                        <span className="text-sm">Team Builder</span>
-                      </Button>
-                    </Link>
-
-                    <Link href="/explore?tab=quiz">
-                      <Button variant="outline" className="w-full h-20 flex flex-col gap-2">
-                        <Award className="w-6 h-6" />
-                        <span className="text-sm">Take Quiz</span>
-                      </Button>
-                    </Link>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Status</CardTitle>
+                  <Trophy className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                      Active
+                    </Badge>
                   </div>
+                  <p className="text-xs text-muted-foreground">All systems operational</p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Progress Overview */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Your Progress
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span>Pokédex Completion</span>
-                        <span>{safePercentage(userStats.pokemonSeen, 1000)}%</span>
-                      </div>
-                      <Progress value={safePercentage(userStats.pokemonSeen, 1000)} className="h-3" />
-                    </div>
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sword className="w-5 h-5" />
+                    Battle Simulator
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Experience realistic Pokémon battles with full damage calculations and type effectiveness.
+                  </p>
+                  <Button
+                    onClick={() => setActiveTab("battle")}
+                    className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600"
+                  >
+                    Start Battle
+                  </Button>
+                </CardContent>
+              </Card>
 
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span>Collection Progress</span>
-                        <span>{safePercentage(userStats.pokemonCaught, 100)}%</span>
-                      </div>
-                      <Progress value={safePercentage(userStats.pokemonCaught, 100)} className="h-3" />
-                    </div>
-                  </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Team Builder
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Create and analyze competitive Pokémon teams with advanced strategy tools.
+                  </p>
+                  <Button onClick={() => setActiveTab("team")} variant="outline" className="w-full">
+                    Build Team
+                  </Button>
+                </CardContent>
+              </Card>
 
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span>Battle Win Rate</span>
-                        <span>{safeBattleWinRate()}%</span>
-                      </div>
-                      <Progress value={safeBattleWinRate()} className="h-3" />
-                    </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5" />
+                    Knowledge Quiz
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Test your Pokémon knowledge with interactive quizzes and challenges.
+                  </p>
+                  <Button onClick={() => setActiveTab("quiz")} variant="outline" className="w-full">
+                    Take Quiz
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
 
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span>Achievement Progress</span>
-                        <span>{safePercentage(userStats.achievementsUnlocked, 10)}%</span>
-                      </div>
-                      <Progress value={safePercentage(userStats.achievementsUnlocked, 10)} className="h-3" />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Featured Components */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PokemonOfTheDay />
+              <RandomPokemon />
+            </div>
           </TabsContent>
 
-          <TabsContent value="daily">
-            <PokemonOfTheDay pokemon={pokemon} onPokemonSelect={setSelectedPokemon} />
-          </TabsContent>
+          {/* Battle Tab */}
+          <TabsContent value="battle">{pokemon && <BattleSimulator pokemon={pokemon} />}</TabsContent>
 
-          <TabsContent value="random">
-            <RandomPokemon pokemon={pokemon} onPokemonSelect={setSelectedPokemon} />
-          </TabsContent>
+          {/* Team Builder Tab */}
+          <TabsContent value="team">{pokemon && <TeamBuilder pokemon={pokemon} />}</TabsContent>
 
-          <TabsContent value="favorites">
-            <FavoritesSystem pokemon={pokemon} />
-          </TabsContent>
+          {/* Quiz Tab */}
+          <TabsContent value="quiz">{pokemon && <QuizSystem pokemon={pokemon} />}</TabsContent>
 
+          {/* Achievements Tab */}
           <TabsContent value="achievements">
-            <AchievementSystem userStats={userStats} />
+            <AchievementSystem />
+          </TabsContent>
+
+          {/* Favorites Tab */}
+          <TabsContent value="favorites">{pokemon && <FavoritesSystem pokemon={pokemon} />}</TabsContent>
+
+          {/* Random Tab */}
+          <TabsContent value="random">
+            <RandomPokemon />
+          </TabsContent>
+
+          {/* Daily Tab */}
+          <TabsContent value="daily">
+            <PokemonOfTheDay />
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Pokemon Modal */}
-      <PokemonModal pokemon={selectedPokemon} isOpen={!!selectedPokemon} onClose={() => setSelectedPokemon(null)} />
     </div>
   )
 }

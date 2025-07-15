@@ -1,4 +1,4 @@
-import type { BattlePokemon, Move, StatusEffect } from "@/types/enhanced-features"
+import type { BattlePokemon, Move, MoveResult } from "@/types/battle"
 
 export class BattleEngine {
   private typeChart: Record<string, Record<string, number>> = {
@@ -6,7 +6,18 @@ export class BattleEngine {
     fire: { fire: 0.5, water: 0.5, grass: 2, ice: 2, bug: 2, rock: 0.5, dragon: 0.5, steel: 2 },
     water: { fire: 2, water: 0.5, grass: 0.5, ground: 2, rock: 2, dragon: 0.5 },
     electric: { water: 2, electric: 0.5, grass: 0.5, ground: 0, flying: 2, dragon: 0.5 },
-    grass: { fire: 0.5, water: 2, grass: 0.5, poison: 0.5, flying: 0.5, bug: 0.5, rock: 2, dragon: 0.5, steel: 0.5 },
+    grass: {
+      fire: 0.5,
+      water: 2,
+      grass: 0.5,
+      poison: 0.5,
+      ground: 2,
+      flying: 0.5,
+      bug: 0.5,
+      rock: 2,
+      dragon: 0.5,
+      steel: 0.5,
+    },
     ice: { fire: 0.5, water: 0.5, grass: 2, ice: 0.5, ground: 2, flying: 2, dragon: 2, steel: 0.5 },
     fighting: {
       normal: 2,
@@ -45,99 +56,71 @@ export class BattleEngine {
     fairy: { fire: 0.5, fighting: 2, poison: 0.5, dragon: 2, dark: 2, steel: 0.5 },
   }
 
-  calculateDamage(attacker: BattlePokemon, defender: BattlePokemon, move: Move): number {
-    if (move.category === "status") return 0
-
-    const level = attacker.level
-    const power = move.power || 0
-    const attack = move.category === "physical" ? attacker.stats.attack : attacker.stats.specialAttack
-    const defense = move.category === "physical" ? defender.stats.defense : defender.stats.specialDefense
-
-    // Base damage calculation
-    let damage = (((2 * level) / 5 + 2) * power * attack) / defense / 50 + 2
-
-    // STAB (Same Type Attack Bonus)
-    if (attacker.types.includes(move.type)) {
-      damage *= 1.5
-    }
-
-    // Type effectiveness
+  getTypeEffectiveness(attackType: string, defenseTypes: string[]): number {
     let effectiveness = 1
-    for (const defenderType of defender.types) {
-      const typeMultiplier = this.typeChart[move.type]?.[defenderType] ?? 1
-      effectiveness *= typeMultiplier
-    }
-    damage *= effectiveness
 
-    // Random factor (85-100%)
-    damage *= Math.random() * 0.15 + 0.85
-
-    // Status effect modifiers
-    if (attacker.statusEffect?.name === "burn" && move.category === "physical") {
-      damage *= 0.5
-    }
-
-    return Math.floor(damage)
-  }
-
-  getTypeEffectiveness(moveType: string, defenderTypes: string[]): number {
-    let effectiveness = 1
-    for (const defenderType of defenderTypes) {
-      const multiplier = this.typeChart[moveType]?.[defenderType] ?? 1
+    for (const defenseType of defenseTypes) {
+      const multiplier = this.typeChart[attackType]?.[defenseType] ?? 1
       effectiveness *= multiplier
     }
+
     return effectiveness
   }
 
-  applyStatusEffect(pokemon: BattlePokemon, effect: StatusEffect): void {
-    pokemon.statusEffect = effect
-  }
-
-  processStatusDamage(pokemon: BattlePokemon): number {
-    if (!pokemon.statusEffect) return 0
-
-    let damage = 0
-    switch (pokemon.statusEffect.name) {
-      case "burn":
-      case "poison":
-        damage = Math.floor(pokemon.stats.hp / 8)
-        break
-      default:
-        break
-    }
-
-    pokemon.statusEffect.turnsRemaining--
-    if (pokemon.statusEffect.turnsRemaining <= 0) {
-      pokemon.statusEffect = undefined
-    }
-
-    return damage
-  }
-
   canUseMove(pokemon: BattlePokemon, move: Move): boolean {
-    if (move.currentPp <= 0) return false
-    if (pokemon.statusEffect?.name === "sleep") return Math.random() < 0.33
-    if (pokemon.statusEffect?.name === "freeze") return Math.random() < 0.2
-    if (pokemon.statusEffect?.name === "paralysis") return Math.random() < 0.75
-    return true
+    return move.currentPp > 0 && !pokemon.statusEffect?.name.includes("sleep")
   }
 
-  executeMove(
-    attacker: BattlePokemon,
-    defender: BattlePokemon,
-    move: Move,
-  ): {
-    damage: number
-    effectiveness: number
-    critical: boolean
-    statusApplied?: StatusEffect
-    message: string
-  } {
-    const damage = this.calculateDamage(attacker, defender, move)
-    const effectiveness = this.getTypeEffectiveness(move.type, defender.types)
-    const critical = Math.random() < 0.0625 // 1/16 chance
+  executeMove(attacker: BattlePokemon, defender: BattlePokemon, move: Move): MoveResult {
+    // Consume PP
+    move.currentPp = Math.max(0, move.currentPp - 1)
 
+    // Check if move hits
+    const hitChance = Math.random() * 100
+    const hit = hitChance <= move.accuracy
+
+    if (!hit) {
+      return {
+        damage: 0,
+        message: `${attacker.name} used ${move.name}, but it missed!`,
+        hit: false,
+        critical: false,
+        effectiveness: 1,
+      }
+    }
+
+    // Calculate damage for non-status moves
+    let damage = 0
+    let critical = false
+    let effectiveness = 1
+
+    if (move.power && move.power > 0) {
+      // Type effectiveness
+      effectiveness = this.getTypeEffectiveness(move.type, defender.types)
+
+      // STAB (Same Type Attack Bonus)
+      const stab = attacker.types.includes(move.type) ? 1.5 : 1
+
+      // Critical hit (1/16 chance)
+      critical = Math.random() < 1 / 16
+
+      // Base damage calculation
+      const attackStat = move.category === "physical" ? attacker.stats.attack : attacker.stats.specialAttack
+      const defenseStat = move.category === "physical" ? defender.stats.defense : defender.stats.specialDefense
+
+      const baseDamage = (((2 * attacker.level) / 5 + 2) * move.power * attackStat) / defenseStat / 50 + 2
+
+      // Apply modifiers
+      damage = Math.floor(baseDamage * stab * effectiveness * (critical ? 1.5 : 1) * (0.85 + Math.random() * 0.15))
+      damage = Math.max(1, damage) // Minimum 1 damage
+    }
+
+    // Generate battle message
     let message = `${attacker.name} used ${move.name}!`
+
+    if (critical) {
+      message += " Critical hit!"
+    }
 
     if (effectiveness > 1) {
       message += " It's super effective!"
@@ -147,17 +130,12 @@ export class BattleEngine {
       message += " It had no effect!"
     }
 
-    if (critical) {
-      message += " A critical hit!"
-    }
-
-    move.currentPp--
-
     return {
-      damage: critical ? Math.floor(damage * 1.5) : damage,
-      effectiveness,
-      critical,
+      damage,
       message,
+      hit: true,
+      critical,
+      effectiveness,
     }
   }
 }
